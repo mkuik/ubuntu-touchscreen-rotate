@@ -1,0 +1,66 @@
+#!/bin/bash
+# Rotate the Microsoft Surface Pro touchscreen input
+# Usage: rotate [clockwise|counter-clockwise|normal|inverted|left|right]
+# The script will rotate the screen clockwise by default
+
+matrix() {
+	declare -A dict=(
+		["normal"]="1 0 0 0 1 0 0 0 1"
+		["inverted"]="-1 0 1 0 -1 1 0 0 1"
+		["left"]="0 -1 1 1 0 0 0 0 1"
+		["right"]="0 1 0 -1 0 1 0 0 1"
+	)
+	echo "${dict["$1"]}"
+}
+rotate() {
+	M=$(matrix "$1")
+	PROP='Coordinate Transformation Matrix'
+	DEVICES=$(pointerID)
+	xrandr -o $1
+	for id in $DEVICES; do xinput set-prop $id "$PROP" $M; done;
+	notify-send \
+	"The system's display and touch-screen input have been rotated to $1" \
+	"Pointer device ID(s): $(echo $DEVICES | tr ' ' '\n' | sort -n | \
+	sed ':a;N;$!ba;s/\n/, /g')"
+}
+clockwise() {
+	declare -A dict=(
+		["normal"]="right"
+		["inverted"]="left"
+		["left"]="normal"
+		["right"]="inverted"
+	)
+	echo "${dict["$1"]}"
+}
+counterClockwise() {
+	declare -A dict=(
+		["normal"]="left"
+		["inverted"]="right"
+		["left"]="inverted"
+		["right"]="normal"
+	)
+	echo "${dict["$1"]}"
+}
+currentRotation() {
+	INFO="$(xrandr -q --verbose | grep LVDS1)"
+	if [ "$(echo $INFO | cut -d' ' -f 3)" = "primary" ];
+	then
+		echo "$(echo $INFO | cut -d' ' -f 6)"
+	else
+		echo "$(echo $INFO | cut -d' ' -f 5)"
+	fi
+}
+pointerID() {
+	echo "$(xinput --list | grep pointer | cut -f 2 | cut -d= -f 2)"
+}
+
+if [ "$1" = "" ] || [ "$1" = "clockwise" ];
+then
+	rotate "$(clockwise "$(currentRotation)")"
+elif [ "$1" = "counter-clockwise" ];
+then
+	rotate "$(counterClockwise "$(currentRotation)")"
+else
+	rotate "$1"
+fi
+
